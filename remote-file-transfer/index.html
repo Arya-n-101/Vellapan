@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload and Select File</title>
+</head>
+<body>
+    <h2>Upload File</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" required>
+        <button type="submit">Upload File</button>
+    </form>
+
+    <hr>
+
+    <h2>Select File for Device B to Download</h2>
+    <button id="downloadFileButton" disabled>Select File</button>
+
+    <p id="status"></p>
+
+    <script>
+        const uploadForm = document.getElementById("uploadForm");
+        const fileInput = document.getElementById("fileInput");
+        const statusElement = document.getElementById("status");
+        const downloadFileButton = document.getElementById("downloadFileButton");
+
+        let uploadedFileUrl = null;  // Store uploaded file URL
+
+        // Handle file upload to Cloudinary
+        uploadForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                // Send the file to Device 1's server
+                const response = await fetch("http://localhost:5000/upload", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.url) {
+                    uploadedFileUrl = data.url;
+                    statusElement.innerText = "File uploaded successfully!";
+                    downloadFileButton.disabled = false;  // Enable the "select" button
+                    console.log("File uploaded: ", uploadedFileUrl);
+                } else {
+                    statusElement.innerText = "Upload failed!";
+                }
+            } catch (error) {
+                console.error(error);
+                statusElement.innerText = "Error during upload!";
+            }
+        };
+
+        // Handle selecting the file for Device B to download
+        downloadFileButton.onclick = async () => {
+            try {
+                if (uploadedFileUrl) {
+                    const response = await fetch("http://localhost:5000/select-file", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ url: uploadedFileUrl })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        statusElement.innerText = "File selected for download on Device B!";
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                statusElement.innerText = "Error selecting file for download!";
+            }
+        };
+    </script>
+</body>
+</html>

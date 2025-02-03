@@ -1,0 +1,90 @@
+; A document is taken as the input. Take a single character as another input that is
+; to be searched. Print 1 if the searched character is present in the given document,
+; otherwise print 0. Print the number of iterations you need to reach the searched
+; character.
+
+
+
+
+section .data
+    msg db "enter document: ",0
+    fmt db "%s",0
+    msg_len equ $-msg
+    msg2 db "enter character to search: ",0
+    fmt2 db "%s",0
+    msg2_len equ $-msg2
+    msg_found db "Found at index: %d",10,0
+    msg_not_found db "Not Found",10,0
+
+
+
+section .bss
+    document resb 1000
+    character resb 1
+
+section .text
+global main
+extern printf
+extern scanf
+extern exit
+
+main:
+    call print_first_message
+    call get_doc
+    call ask_for_char
+    call get_char
+    call process_doc
+    call find_char
+    call exit
+
+print_first_message:
+    push msg
+    call printf
+    add esp, 4
+    ret
+
+get_doc:
+    push document
+    push fmt
+    call scanf
+    add esp, 8
+    ret
+    
+ask_for_char:
+    push msg2
+    call printf
+    add esp, 4
+    ret
+
+get_char:
+    push character
+    push fmt2
+    call scanf
+    add esp, 8
+    ret
+
+process_doc:
+    mov ecx, 0
+    mov esi, document
+    ret
+
+find_char:
+    mov al, [esi]
+    cmp al, [character]
+    je found
+    inc esi
+    inc ecx
+    cmp al, 0
+    jne find_char
+    push msg_not_found
+    call printf
+    add esp, 4
+    ret
+
+found:
+    mov eax, 1
+    push ecx
+    push msg_found
+    call printf
+    add esp, 8
+    ret

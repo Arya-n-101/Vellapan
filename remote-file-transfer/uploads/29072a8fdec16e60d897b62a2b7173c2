@@ -1,0 +1,119 @@
+extern printf
+extern scanf
+extern exit
+
+section .bss
+    n resd 1              ; Size of array
+    k resd 1              ; Number of elements to sum
+    array resd 100        ; Array to store numbers
+    sum resd 1            ; Sum of first k numbers
+    flag resb 1           ; Flag to indicate if k numbers exist
+
+section .data
+    msg_n db "Enter n: ", 0
+    msg_k db "Enter k: ", 0
+    msg_array db "Enter Array:", 10, 0
+    msg_element db "Enter element %d: ", 0
+    msg_sum db "Sum = %d", 10, 0
+    msg_flag db "Flag = %d", 10, 0
+    fmt db "%d", 0
+
+section .text
+global main
+
+main:
+    ; Get n
+    push msg_n
+    call printf
+    add esp, 4
+    
+    push n
+    push fmt
+    call scanf
+    add esp, 8
+
+    ; Get k
+    push msg_k
+    call printf
+    add esp, 4
+    
+    push k
+    push fmt
+    call scanf
+    add esp, 8
+
+    ; Compare n and k to set initial flag
+    mov eax, [n]
+    mov ebx, [k]
+    
+    mov byte [flag], 0    ; Default flag to 0
+    cmp eax, ebx         ; Compare n and k
+    jl done_flag         ; If n < k, keep flag as 0
+    mov byte [flag], 1    ; If n >= k, set flag to 1
+    
+done_flag:
+    ; Get array elements
+    push msg_array
+    call printf
+    add esp, 4
+    
+    xor ecx, ecx         ; Counter = 0
+    mov esi, array       ; Point to start of array
+
+input_loop:
+    cmp ecx, [n]         ; Check if we've got all elements
+    jge calc_sum         ; If ecx >= n, go to sum calculation
+    
+    ; Print prompt for element (1-based index)
+    push ecx
+    inc ecx              ; Increment index to be 1-based
+    push msg_element
+    call printf
+    add esp, 8
+    
+    ; Get input for the element
+    push esi
+    push fmt
+    call scanf
+    add esp, 8
+    
+    add esi, 4           ; Move to next array position
+    dec ecx              ; Decrement counter back to 0-based
+    inc ecx
+    jmp input_loop
+
+
+
+calc_sum:
+    ; Calculate sum of first k elements
+    xor eax, eax         ; Clear sum
+    mov [sum], eax       ; Initialize sum to 0
+    xor ecx, ecx         ; Counter = 0
+    mov esi, array       ; Point to start of array
+
+sum_loop:
+    cmp ecx, [k]         ; Check if we've summed k elements
+    jge print_results
+    
+    add eax, [esi]       ; Add current element to sum
+    add esi, 4           ; Move to next element
+    inc ecx
+    jmp sum_loop
+
+print_results:
+    ; Print sum
+    mov [sum], eax
+    push dword [sum]
+    push msg_sum
+    call printf
+    add esp, 8
+    
+    ; Print flag
+    movzx eax, byte [flag]
+    push eax
+    push msg_flag
+    call printf
+    add esp, 8
+    
+    ; Exit
+    call exit

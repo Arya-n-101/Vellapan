@@ -1,8 +1,9 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const unzipper = require('unzipper');
 
-// Folder for downloaded files
+// Folder for downloads
 const downloadFolder = path.join(__dirname, 'downloads');
 if (!fs.existsSync(downloadFolder)) {
   fs.mkdirSync(downloadFolder);
@@ -10,74 +11,63 @@ if (!fs.existsSync(downloadFolder)) {
 
 // Store downloaded files
 const downloadedFilesPath = path.join(__dirname, 'downloaded_files.json');
-let downloadedFiles = {};
-if (fs.existsSync(downloadedFilesPath)) {
-  downloadedFiles = JSON.parse(fs.readFileSync(downloadedFilesPath, 'utf8'));
-}
+let downloadedFiles = fs.existsSync(downloadedFilesPath)
+  ? JSON.parse(fs.readFileSync(downloadedFilesPath, 'utf8'))
+  : {};
 
-// Notify Device A to delete file after downloading
+// Notify Device A to delete file after download
 const notifyDeletion = async (publicId) => {
   try {
-    console.log(`Notifying Device A to delete file: ${publicId}`);
     await axios.post("http://localhost:5000/delete-file", { publicId });
     console.log("Deletion request sent!");
   } catch (error) {
-    console.error("Error notifying Device A to delete file:", error);
+    console.error("Error notifying Device A:", error);
   }
 };
 
-// Download file and save with original name
-const downloadFile = async (fileUrl, fileName, publicId) => {
+// Download and save file/folder
+const downloadFile = async (fileUrl, fileName, publicId, isFolder) => {
   try {
-    if (downloadedFiles[fileUrl]) {
-      console.log(`File already downloaded: ${fileUrl}`);
-      return;
-    }
+    if (downloadedFiles[fileUrl]) return console.log(`File already downloaded: ${fileUrl}`);
 
     console.log(`Downloading: ${fileUrl}`);
+    const filePath = path.join(downloadFolder, fileName);
 
-    // Ensure filename is safe for saving
-    const safeFileName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_"); // Replace unsafe characters
-    const filePath = path.join(downloadFolder, safeFileName);
-
-    // Fetch file and save to disk
     const response = await axios({ method: 'get', url: fileUrl, responseType: 'stream' });
     const writer = fs.createWriteStream(filePath);
     response.data.pipe(writer);
 
     writer.on('finish', async () => {
-      console.log(`File saved: ${filePath}`);
-      
-      // Mark file as downloaded
+      console.log(`Saved: ${filePath}`);
+
+      if (isFolder) {
+        console.log("Extracting ZIP...");
+        fs.createReadStream(filePath).pipe(unzipper.Extract({ path: downloadFolder }));
+      }
+
       downloadedFiles[fileUrl] = fileName;
       fs.writeFileSync(downloadedFilesPath, JSON.stringify(downloadedFiles, null, 2));
 
-      // Notify Device A to delete the file
       await notifyDeletion(publicId);
     });
 
-    writer.on('error', (err) => {
-      console.error("Error saving file:", err);
-    });
+    writer.on('error', console.error);
   } catch (error) {
-    console.error("Error downloading file:", error);
+    console.error("Download failed:", error);
   }
 };
 
-// Check for new files
+// Check for new file/folder
 const checkForNewFile = async () => {
   try {
-    const response = await axios.get("http://localhost:5000/check-file");
-    const data = response.data;
-
+    const { data } = await axios.get("http://localhost:5000/check-file");
     if (data.fileAvailable) {
-      console.log("New file detected!");
-      await downloadFile(data.url, data.originalName, data.publicId);
+      await downloadFile(data.url, data.originalName, data.publicId, data.isFolder);
     } else {
-      console.log("No new file available.");
+      console.log("No new files.");
     }
   } catch (error) {
-    console.error("Error checking file availability:", error);
+    console.error("Error checking files:", error);
   }
 };
 

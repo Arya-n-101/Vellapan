@@ -3,79 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload and Select File</title>
+    <title>Remote File Transfer</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        input, button { margin: 10px; padding: 10px; }
+        #fileList { margin-top: 20px; }
+    </style>
 </head>
 <body>
-    <h2>Upload File</h2>
+
+    <h2>Upload Files/Folders</h2>
     <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="fileInput" name="file" required>
-        <button type="submit">Upload File</button>
+        <input type="file" id="fileInput" name="files" multiple>
+        <button type="submit">Upload</button>
     </form>
 
-    <hr>
+    <h2>Uploaded Files</h2>
+    <div id="fileList">No files uploaded yet.</div>
 
-    <h2>Select File for Device B to Download</h2>
-    <button id="downloadFileButton" disabled>Select File</button>
+    <h2>Select File for Device B</h2>
+    <button id="selectFileBtn" disabled>Select File</button>
 
     <p id="status"></p>
 
     <script>
-        const uploadForm = document.getElementById("uploadForm");
         const fileInput = document.getElementById("fileInput");
+        const uploadForm = document.getElementById("uploadForm");
+        const fileListDiv = document.getElementById("fileList");
         const statusElement = document.getElementById("status");
-        const downloadFileButton = document.getElementById("downloadFileButton");
+        const selectFileBtn = document.getElementById("selectFileBtn");
 
-        let uploadedFileUrl = null;  // Store uploaded file URL
+        let uploadedFile = null;
 
-        // Handle file upload to Cloudinary
-        uploadForm.onsubmit = async (e) => {
-            e.preventDefault();
+        // 📌 Handle file upload
+        async function uploadFiles(event) {
+            event.preventDefault();
+            if (fileInput.files.length === 0) {
+                alert("Please select at least one file!");
+                return;
+            }
+
             const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
+            for (let file of fileInput.files) {
+                formData.append("files", file);
+            }
+
+            statusElement.innerText = "Uploading...";
 
             try {
-                // Send the file to Device 1's server
                 const response = await fetch("http://localhost:5000/upload", {
                     method: "POST",
-                    body: formData
+                    body: formData,
                 });
                 const data = await response.json();
+
                 if (data.url) {
-                    uploadedFileUrl = data.url;
-                    statusElement.innerText = "File uploaded successfully!";
-                    downloadFileButton.disabled = false;  // Enable the "select" button
-                    console.log("File uploaded: ", uploadedFileUrl);
+                    uploadedFile = data;
+                    fileListDiv.innerHTML = `<strong>${data.originalName}</strong> (Ready to send to Device B)`;
+                    selectFileBtn.disabled = false;
+                    statusElement.innerText = "Upload successful!";
                 } else {
                     statusElement.innerText = "Upload failed!";
                 }
             } catch (error) {
-                console.error(error);
-                statusElement.innerText = "Error during upload!";
+                console.error("Upload error:", error);
+                statusElement.innerText = "Error uploading!";
             }
-        };
+        }
 
-        // Handle selecting the file for Device B to download
-        downloadFileButton.onclick = async () => {
+        // 📌 Handle selecting the file for Device B
+        async function selectFile() {
+            if (!uploadedFile) return;
+
+            statusElement.innerText = "Selecting file...";
+
             try {
-                if (uploadedFileUrl) {
-                    const response = await fetch("http://localhost:5000/select-file", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ url: uploadedFileUrl })
-                    });
+                const response = await fetch("http://localhost:5000/select-file", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(uploadedFile),
+                });
+                const data = await response.json();
 
-                    const data = await response.json();
-                    if (data.success) {
-                        statusElement.innerText = "File selected for download on Device B!";
-                    }
+                if (data.success) {
+                    statusElement.innerText = "File sent to Device B!";
+                } else {
+                    statusElement.innerText = "Failed to send file!";
                 }
             } catch (error) {
-                console.error(error);
-                statusElement.innerText = "Error selecting file for download!";
+                console.error("Selection error:", error);
+                statusElement.innerText = "Error selecting file!";
             }
-        };
+        }
+
+        // 📌 Attach event listeners
+        uploadForm.addEventListener("submit", uploadFiles);
+        selectFileBtn.addEventListener("click", selectFile);
     </script>
+
 </body>
 </html>
